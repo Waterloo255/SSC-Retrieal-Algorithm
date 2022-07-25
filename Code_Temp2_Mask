@@ -1,0 +1,144 @@
+// ----------------------------------------------------------
+// Temp2 - Mask
+
+/****************************************************************************************************************************
+* 
+*                                              function of computer index
+* 
+* **************************************************************************************************************************/
+{{{ NDVI
+  //
+  var Norm_ID=function Norm_ID(B1,B2,name) {
+    var norm_id= function(img){
+      var temp_id= img.normalizedDifference([B1,B2]);
+      return img.addBands(temp_id.rename(name));
+    }
+    return norm_id;
+  }
+  
+  // Divide
+  var Two_Divide=function Two_Divide(B1,B2,name) {
+    var two_divide= function(img){
+      var temp_td=img.expression(
+        'b1/b2',
+        {b1:img.select(B1),
+        b2:img.select(B2)
+        });
+      return img.addBands(temp_td.rename(name));
+    }
+    return two_divide;
+  }
+  
+  
+}}}
+
+
+ {{{ //preprocess dataset
+   var createLandsatCollection=function createLandsatCollection(params) {
+       region: Map.getBounds(true), 
+      start: '1982-01-01', 
+       end: formatDate(new Date()), 
+      mapImage: function (image) { return image }
+     }
+     params = mergeObjects([defaultParams, params])
+    
+     var filter = ee.Filter.and(
+         ee.Filter.bounds(params.region),
+        ee.Filter.date(params.start, params.end  ),
+        ee.Filter.lt('CLOUD_COVER', 20)
+     )
+     var l4 = ee.ImageCollection('LANDSAT/LT04/C01/T1_SR')
+       .merge(ee.ImageCollection('LANDSAT/LT04/C01/T2_SR'))
+      .filter(filter)
+       .select(
+         ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'pixel_qa'], 
+         ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'pixel_qa']
+       )
+       .map(cloudMaskL457)
+      
+    var l5 = ee.ImageCollection('LANDSAT/LT05/C01/T1_SR')
+       .merge(ee.ImageCollection('LANDSAT/LT05/C01/T2_SR'))
+       .filter(filter)
+      .select(
+         ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'pixel_qa'], 
+        ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'pixel_qa']
+       )
+       .map(cloudMaskL457)
+      
+     var l7 = ee.ImageCollection('LANDSAT/LE07/C01/T1_SR')
+       .merge(ee.ImageCollection('LANDSAT/LE07/C01/T2_SR'))
+      .filter(filter)
+       .select(
+         ['B1', 'B2', 'B3', 'B4', 'B5', 'B7', 'pixel_qa'], 
+         ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'pixel_qa']
+       )
+       .map(cloudMaskL457)
+      
+     var l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR')
+       .merge(ee.ImageCollection('LANDSAT/LC08/C01/T2_SR'))
+       .filter(filter)
+       .select(
+         ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'pixel_qa'], 
+         ['blue', 'green', 'red', 'nir', 'swir1', 'swir2', 'pixel_qa']
+       )
+       .map(cloudMaskL8)
+      
+ return l4.merge(l5).merge(l7).merge(l8).sort('system:time_start')
+     return l4.merge(l5).merge(l8).sort('system:time_start')
+//   //Landsat4 5 7 8 
+//     function cloudMaskL457(image) {
+//       var qa = image.select('pixel_qa');
+//       // If the cloud bit (5) is set and the cloud confidence (7) is high
+//       // or the cloud shadow bit is set (3), then it's a bad pixel.
+//       var cloud = qa.bitwiseAnd(1 << 5)
+//                       .and(qa.bitwiseAnd(1 << 7))
+//                       .or(qa.bitwiseAnd(1 << 3));
+//       // Remove edge pixels that don't occur in all bands
+//       var mask2 = image.mask().reduce(ee.Reducer.min());
+//       return image.updateMask(cloud.not()).updateMask(mask2);
+//   };
+    
+    
+    
+//     //Landsat8 SR Cloudmask
+//     function cloudMaskL8(image) {
+//       var cloudShadowBitMask = (1 << 3);
+//       var cloudsBitMask = (1 << 5);
+//       var qa = image.select("pixel_qa");
+//       var mask = qa.bitwiseAnd(cloudShadowBitMask).eq(0)
+//                     .and(qa.bitwiseAnd(cloudsBitMask).eq(0));
+//       return image.updateMask(mask);
+//     }
+        
+    
+//     function excludeBand(bandName, image) {
+//       var bandNames = image.bandNames()
+//       var bandIndexes = ee.List.sequence(0, bandNames.size().subtract(1))
+//         .filter(
+//           ee.Filter.neq('item', bandNames.indexOf(bandName))
+//         )
+//       return image.select(bandIndexes)
+//     }
+  
+//     function formatDate(date) {
+//       var d = new Date(date),
+//           month = '' + (d.getMonth() + 1),
+//           day = '' + d.getDate(),
+//           year = d.getFullYear()
+    
+//       if (month.length < 2) 
+//           month = '0' + month
+//       if (day.length < 2) 
+//           day = '0' + day
+    
+//       return [year, month, day].join('-')
+//     }
+  
+//     function mergeObjects(objects) {
+//       return objects.reduce(function (acc, o) {
+//         for (var a in o) { acc[a] = o[a] }
+//         return acc
+//         }, {})
+//     }
+//   } 
+// }}}
