@@ -1,0 +1,59 @@
+/****************************************************************************************************************************
+ * 
+ *                                             export csv
+ * 
+ * **************************************************************************************************************************/
+
+// FUNCTION 2 - PROCESS SSC  
+
+// var all_points=geometry2.toList(geometry2.size())
+
+var csv_point=table2
+
+Map.addLayer(csv_point,{},'csv_point')
+csv_point=csv_point.map(function(ds){
+    var fea=ee.Feature(ds)
+    // var new_fea=ee.Geometry.Point(ee.Number(fea.get(lng_name)),ee.Number(fea.get(lat_name))).buffer(50)
+     var new_fea=fea.buffer(50)
+     return ee.Feature(new_fea)
+})
+
+// Get Zonal Statistics
+var reduced = img_ssc_all.reduceRegions({
+  collection: csv_point,
+  reducer: ee.Reducer.mean()
+             .combine(ee.Reducer.stdDev(),null,true)
+             .combine(ee.Reducer.median(),null,true),
+  scale: 30,
+});
+
+var ssc_mean=reduced.select('.*_mean')
+var ssc_stdDev=reduced.select('.*_stdDev')
+var ssc_median=reduced.select('.*_median')
+print('ssc_mean',ssc_mean)
+print('ssc_stdDev',ssc_stdDev)
+
+Export.table.toDrive({
+    collection:ssc_mean,
+    folder: 'csv_folder',
+    description: 'ssc_mean',
+    fileNamePrefix: 'ssc_mean',
+    fileFormat: 'CSV'
+})
+
+Export.table.toDrive({
+    collection:ssc_stdDev,
+    folder: 'csv_folder',
+    description: 'ssc_stdDev',
+    fileNamePrefix: 'ssc_stdDev',
+    fileFormat: 'CSV'
+})
+
+
+Export.table.toDrive({
+    collection:ssc_median,
+    folder: 'csv_folder',
+    description: 'ssc_median',
+    fileNamePrefix: 'ssc_median',
+    fileFormat: 'CSV'
+})
