@@ -1,0 +1,108 @@
+// ----------------------------------------------------------
+// Temp4 - get_water
+
+function cal_index(img){
+  var evi=img.expression(
+                '2.5 * (nir - red) / (nir + 6 * red - 7.5 * blue + 1)',
+                {
+                  red: img.select('red'),    // 620-670nm, RED
+                  nir: img.select('nir'),    // 841-876nm, NIR
+                  blue: img.select('blue')    // 459-479nm, BLUE
+              });
+  var AWEI_nsh=img.expression(
+                '4*(green-swir1)-(0.25*nir+2.75*swir2)',
+                {
+                  swir1: img.select('swir1'),  
+                  nir: img.select('nir'),    
+                  green: img.select('green')    
+              });
+  var AWEI_sh=img.expression(
+                'blue+2.5*green-1.5*(nir+swir1)-0.25*swir2',
+                {
+                  swir1: img.select('swir1'),
+                  swir2: img.select('swir2'),  
+                  nir: img.select('nir'),
+                  green: img.select('green'),      
+              });
+  
+  
+   var ndwi=img.expression(
+                '(green-nir)/(green+nir)',
+                {
+                  // swir1: img.select('swir1'),
+                  // swir2: img.select('swir2'),  
+                  nir: img.select('nir'),    
+                  green: img.select('green')    
+              });
+  
+  var mndwi=img.expression(
+                '(green-swir1)/(green+swir1)',
+                {
+                  swir1: img.select('swir1'),
+                  // swir2: img.select('swir2'),  
+                  // nir: item_img.select('nir'),      
+              });
+  
+  var ndvi=img.expression(
+                '(nir-red)/(nir+red)',
+                {
+                  // swir1: img.select('swir1'),
+                  // swir2: img.select('swir2'),  
+                  nir: img.select('nir'),       
+              });
+  
+  return img.addBands(evi.rename("EVI")).addBands(AWEI_nsh.rename("AWEI_nsh")).addBands(AWEI_sh.rename("AWEI_sh"))
+            .addBands(ndwi.rename("NDWI")).addBands(mndwi.rename("MDNWI")).addBands(ndvi.rename("NDVI"))
+}
+
+
+function get_water(img){
+  var mask1=img.select("AWEI_nsh").gt(0.88)
+               .or(img.select("AWEI_sh").gt(-0.27))
+               
+  var mask2=img.select("AWEI_nsh")
+               .subtract(img.select("AWEI_sh"))
+               .gt(-0.2)
+               
+  var mask3=img.select("MDNWI").gt(img.select("EVI"))
+               .or(img.select("MDNWI").gt(img.select("NDVI")))
+  
+  var dataset = ee.Image('CGIAR/SRTM90_V4')
+  var elevation = dataset.select('elevation')
+  var mask4=elevation.gt(5)
+  
+  var mask_all=mask1.and(mask2).and(mask3)
+  return mask_all
+}               
+ 
+  
+  var mask_all=mask1.or(mask2)
+  return mask_all
+}
+
+
+function get_area(img_mask){
+  var area = ee.Image.pixelArea().divide(1000000);
+  var ndwi_mask=img_mask.eq(1).multiply(area)
+  var area_res = ndwi_mask.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: roi,
+    scale: 120,
+    maxPixels: 1e13,
+    tileScale :16
+  });
+  var area_lt_water=area_res.values().get(0);
+  return area_lt_water
+}
+
+function processSSC(image) {
+  // Calculate SSC edit functions of extract SSC
+  var SSC = image.expression('0.29 * exp(3.48 * band4)',
+                { band4: image.select('nir')});
+
+  // This returns the SSC and the innundation maps
+  image = image.addBands(SSC.rename('SSC'));
+  //image = image.addBands([justSSC,allMasks]);
+  // Return the updated image.
+  return image;
+}
